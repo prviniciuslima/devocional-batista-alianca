@@ -549,7 +549,7 @@
             document.getElementById('btnNovo').addEventListener('click', gerarDevocional);
         });
 
-        // Gerar devocional
+        // Gerar devocional com Groq
         async function gerarDevocional() {
             const hoje = new Date().getDay();
             const baseDev = devocionaisPorDia[hoje];
@@ -561,6 +561,12 @@
             document.getElementById('error').style.display = 'none';
 
             try {
+                const apiKey = import.meta.env.VITE_GROQ_API_KEY || '';
+                
+                if (!apiKey) {
+                    throw new Error('API Key não configurada');
+                }
+
                 const prompt = `Você é um pastor reformado escrevendo um devocional cristão.
 
 TEMA: ${baseDev.tema}
@@ -596,25 +602,32 @@ Responda APENAS com o devocional formatado exatamente assim:
 [ORAÇÃO]
 (texto aqui)`;
 
-                const response = await fetch('https://api.anthropic.com/v1/messages', {
+                const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
                     },
                     body: JSON.stringify({
-                        model: 'claude-sonnet-4-20250514',
-                        max_tokens: 1000,
-                        messages: [{ role: 'user', content: prompt }]
+                        model: 'mixtral-8x7b-32768',
+                        messages: [
+                            {
+                                role: 'user',
+                                content: prompt
+                            }
+                        ],
+                        max_tokens: 1000
                     })
                 });
 
                 const data = await response.json();
-                
+
                 if (!response.ok) {
-                    throw new Error('Erro da API');
+                    console.error('Erro da API:', data);
+                    throw new Error(data.error?.message || 'Erro na API Groq');
                 }
 
-                const meditacaoCompleta = data.content[0].text;
+                const meditacaoCompleta = data.choices[0].message.content;
 
                 // Parse das 3 seções
                 const meditacaoMatch = meditacaoCompleta.match(/\[MEDITAÇÃO\]([\s\S]*?)(?=\[APLICAÇÃO\])/);
